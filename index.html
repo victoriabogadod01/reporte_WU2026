@@ -64,7 +64,23 @@ tr.det td{white-space:normal;text-align:left;background:#fbfbfe;color:var(--mut)
 .b-gray{background:#eee;color:#555}
 .b-bd{background:#d9f3ec;color:#0b6e55} .b-int{background:#ece9f8;color:#4c43a0}
 td.wrapc{white-space:normal;min-width:220px;max-width:300px;text-align:left}
-td.neg{color:var(--bad);font-weight:600} td.pos{color:var(--good);font-weight:600}
+td.neg{color:var(--bad);font-weight:600}
+.bud{display:grid;grid-template-columns:1fr auto;gap:8px 22px;align-items:center}
+.bud .rows{min-width:0}
+.bud .r{display:grid;grid-template-columns:150px 1fr 118px;gap:10px;align-items:center;margin:9px 0}
+.bud .lb{font-size:13px;color:var(--mut)}
+.bud .tr{height:16px;background:#eceaf6;border-radius:99px;overflow:hidden}
+.bud .tr i{display:block;height:100%;border-radius:99px;transition:width .35s ease}
+.bud .am{text-align:right;font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums}
+.kb{padding:12px 0 4px;border-top:1px solid var(--line)}
+.kb:first-of-type{border-top:0;padding-top:4px}
+.kb .kn{font-weight:700;color:var(--navy);font-size:14px}
+.kb .pct b{font-size:30px}
+.bud.one{grid-template-columns:1fr}
+.bud .pct{text-align:center;padding:4px 6px;min-width:120px}
+.bud .pct b{display:block;font-size:40px;line-height:1.05;color:var(--navy);font-variant-numeric:tabular-nums}
+.bud .pct span{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
+@media(max-width:640px){.bud{grid-template-columns:1fr}.bud .r{grid-template-columns:1fr auto}.bud .r .tr{grid-column:1/-1;order:3}.bud .pct{text-align:left}} td.pos{color:var(--good);font-weight:600}
 .note{font-size:13px;color:var(--mut)}
 .callout{background:#eef9f6;border-left:4px solid var(--teal);padding:10px 14px;border-radius:8px;font-size:14px;margin:0 0 14px}
 .callout.warn{background:#fff7e8;border-color:#e0a21b}
@@ -139,6 +155,8 @@ details{margin:8px 0}summary{cursor:pointer;color:var(--navy);font-weight:600}
 <section id="resumen"><div class="wrap">
   <h2>Resumen</h2>
   <p class="lead" id="resLead"></p>
+  <div class="card" id="budCard"><div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:center;margin-bottom:6px"><h3 style="margin:0">Presupuesto del plan y gasto hasta hoy</h3><div class="chips" id="chipsBud" style="margin:0"></div></div><div class="bud" id="budBody"></div><p class="note" id="budNote" style="margin:8px 0 0"></p></div>
+  <div class="card" id="kpiCard"><div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:center;margin-bottom:6px"><h3 style="margin:0">KPIs: proyectado vs. logrado</h3><div class="chips" id="chipsKpi" style="margin:0"></div></div><div id="kpiBody"></div><p class="note" id="kpiNote" style="margin:8px 0 0"></p></div>
   <div class="grid g4" id="kpis"></div>
   <p class="note" id="tikLine" style="margin:10px 2px 0"></p>
   <div class="card" style="margin-top:14px"><h3>¿Cómo se reparte la inversión?</h3><div id="chShare"></div><div class="legend" id="lgShare"></div></div>
@@ -236,7 +254,7 @@ const TC=6000;
 const COL={'PE-alcance':'#CC1017','PE-trafico':'#ee8a8d','AP-alcance':'#1A4FA5','AP-premia':'#7aa2e3','AP-interaccion':'#00B391'};
 const MESN={'2026-09':'Septiembre','2026-10':'Octubre','2026-11':'Nov. (1–15)'};
 const D=DATA;
-const S={cur:'usd',marca:'all',camp:'all',form:'all',sort:'gasto',q:'',mesMetric:'gasto',demo:0,reg:'all',ubi:'all',sortCamp:{k:'gasto',d:-1}};
+const S={bud:'all',kp:'aw',cur:'usd',marca:'all',camp:'all',form:'all',sort:'gasto',q:'',mesMetric:'gasto',demo:0,reg:'all',ubi:'all',sortCamp:{k:'gasto',d:-1}};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const nn=n=>n==null||isNaN(n)?'–':Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.');
@@ -285,16 +303,19 @@ function renderKpis(){
   const tr=cs.filter(c=>c.id==='PE-trafico');
   const reachLines=cs.filter(c=>c.tipo==='Alcance'&&c.id!=='AP-premia').map(c=>marcaNom[c.marca]+': '+nn(c.alcance)).join(' · ');
   const names=S.marca==='all'?'las dos marcas':marcaNom[S.marca];
-  $('#resLead').textContent='Resumen de '+names+' del 1/9 al 15/11/2026. Todo lo que ves en la página responde al botón de marca de arriba.';
+  $('#resLead').textContent='Resumen de '+names+' del 1/9 al 15/11/2026. Todo lo que ves responde al botón de marca de arriba, menos el presupuesto y los KPIs del plan, que son del plan completo.';
   const k=[
-   ['Inversión total',gs(g),(S.cur==='usd'?'≈ ₲ '+nn(g):'≈ US$ '+fUsd(g/TC))+' · '+cs.length+' campañas',''],
+   ['Inversión en Meta',gs(g),cs.length+' campañas · sin TikTok',''],
    ['Impresiones',nM(im),'Veces que se mostraron los anuncios','tl'],
    ['Alcance por campaña (no se suma)',reachLines?'':'–',reachLines||'',S.marca==='AP'?'ap':S.marca==='PE'?'pe':''],
-   ['Clics al enlace',nn(lc),lpv?nn(lpv)+' visitas a la página · costo '+gs(sum(tr,'gasto')/(sum(tr,'lpv')||1))+' por visita':'Sin campaña de tráfico en esta marca','']
+   ['Frecuencia por campaña (no se suma)','','',S.marca==='AP'?'ap':S.marca==='PE'?'pe':''],
+    ['Clics al enlace',nn(lc),lpv?nn(lpv)+' visitas a la página · costo '+gs(sum(tr,'gasto')/(sum(tr,'lpv')||1))+' por visita':'Sin campaña de tráfico en esta marca','']
   ];
   $('#kpis').innerHTML=k.map(x=>'<div class="kpi '+x[3]+'"><div class="l">'+x[0]+'</div><div class="v">'+(x[1]||'')+'</div><div class="s">'+x[2]+'</div></div>').join('');
   // la tarjeta de alcance se arma distinto: líneas
   if(reachLines){const el=document.querySelectorAll('#kpis .kpi')[2];el.querySelector('.v').innerHTML=cs.filter(c=>c.tipo==='Alcance'&&c.id!=='AP-premia').map(c=>'<span style="display:block;font-size:'+(S.marca==='all'?'20':'26')+'px">'+nM(c.alcance)+' <small style="font-size:12px;font-weight:400;color:var(--mut)">'+marcaNom[c.marca]+'</small></span>').join('');el.querySelector('.s').textContent='Campañas de Alcance principales';}
+  const fqs=cs.filter(c=>c.tipo==='Alcance'&&c.id!=='AP-premia');
+  if(fqs.length){const el=document.querySelectorAll('#kpis .kpi')[3];el.querySelector('.v').innerHTML=fqs.map(c=>'<span style="display:block;font-size:'+(S.marca==='all'?'20':'26')+'px">'+dec(c.impresiones/c.alcance,1)+' <small style="font-size:12px;font-weight:400;color:var(--mut)">'+marcaNom[c.marca]+'</small></span>').join('');el.querySelector('.s').textContent='Veces que cada persona vio los anuncios (plan: '+dec(D.plan[0].frecuencia,1)+')';}
   // reparto
   const tot=g||1;
   const w=900,h=44;let x=0,svg='<svg viewBox="0 0 '+w+' '+h+'" width="100%" role="img" aria-label="Reparto de la inversión">';
@@ -571,6 +592,54 @@ function renderGood(){
    '<li><b>Costos eficientes:</b> el costo por visita a la página de WU fue de US$ 0,028 a US$ 0,046, las reproducciones completas del reel de Aquí Pago salieron a unos ₲ 11 cada una y el CPM de TikTok (US$ 0,13) quedó por debajo del plan (US$ 0,30).</li>';
   $('#goodNote').textContent='Es una lectura a partir de la frecuencia y la variedad de piezas. Este informe no mide recordación de marca; para eso haría falta un estudio de lift.';
 }
+// ---------- presupuesto vs. gastado (arriba)
+const BUDN={all:'Todo el plan',meta:'Meta',tk:'TikTok',yt:'YouTube'};
+function renderBudget(){
+  const C=planCalc(),mp=C.aw.p.gs+C.tr.p.gs,mt=C.aw.gT+C.tr.gT;
+  const V={all:[mp+C.tk.p.gs+C.yt.p.gs,mt+C.tk.gT],meta:[mp,mt],tk:[C.tk.p.gs,C.tk.gT],yt:[C.yt.p.gs,0]}[S.bud];
+  const pl=V[0],sp=V[1],pct=pl?sp/pl*100:0,mx=Math.max(pl,sp)||1;
+  $('#chipsBud').innerHTML=Object.keys(BUDN).map(k=>'<button class="chip '+(S.bud===k?'on':'')+'" data-b="'+k+'">'+BUDN[k]+'</button>').join('');
+  $('#budBody').innerHTML='<div class="rows"><div class="r"><span class="lb">Presupuesto total</span><div class="tr"><i style="width:'+(pl/mx*100)+'%;background:var(--purple)"></i></div><span class="am">'+gs(pl)+'</span></div>'+
+   '<div class="r"><span class="lb">Gastado hasta el 15/11</span><div class="tr"><i style="width:'+(sp/mx*100)+'%;background:var(--teal)"></i></div><span class="am">'+(sp?gs(sp):(S.cur==='usd'?'US$ 0':'₲ 0'))+'</span></div></div>'+
+   '<div class="pct"><b>'+pc(pct,0)+'</b><span>del presupuesto gastado</span></div>';
+  $('#budNote').textContent={all:'Meta + TikTok + YouTube. YouTube no se ejecutó. El plan es de septiembre y octubre; el gasto llega hasta el 15/11 e incluye noviembre.',meta:'Meta: Awareness + Tráfico. El plan es de septiembre y octubre; el gasto llega hasta el 15/11 e incluye noviembre.',tk:'TikTok no indica el período en su captura, por eso el gasto es el acumulado a la fecha.',yt:'YouTube estaba en el plan y no se ejecutó.'}[S.bud];
+}
+$('#chipsBud').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.bud=b.dataset.b;renderBudget()});
+// ---------- KPIs proyectado vs. logrado (rayas)
+const KSC={aw:'Meta · Awareness',tr:'Meta · Tráfico',tk:'TikTok'};
+function renderKpiPlan(){
+  const C=planCalc(),A=C.aw,T=C.tr,K=C.tk,cp=(g,i)=>i?g/i*1000:null,f1=x=>dec(x,1);
+  const fPE=A.pe.impresiones/A.pe.alcance,fAP=A.ap.impresiones/A.ap.alcance,reachMax=Math.max(A.pe.alcance,A.ap.alcance,A.apP.alcance);
+  let rows,note;
+  if(S.kp==='aw'){
+    rows=[{n:'Frecuencia (impresiones por persona)',pl:A.p.fr,pf:f1,ls:[{l:'Pago Express',v:fPE},{l:'Aquí Pago',v:fAP}]},
+     {n:'Alcance (personas)',pl:A.p.reach,pf:nn,ls:[{l:'Logrado',v:reachMax}]},
+     {n:'Impresiones',pl:A.p.imp,pf:nn,ls:[{l:'Logrado',v:A.i}]},
+     {n:'CPM',pl:A.p.cpm*TC,pf:gs,low:1,ls:[{l:'Logrado',v:cp(A.g,A.i)}]}];
+    note='Logrado = septiembre y octubre, igual que el plan. El alcance no se suma entre campañas, por eso se compara con la de mayor alcance ('+nM(reachMax)+'). Frecuencia más alta que la planificada: se reforzó a propósito para generar recordación. Con noviembre (hasta el 15/11) la frecuencia llega a '+f1(D.campanias.find(c=>c.id==='PE-alcance').impresiones/D.campanias.find(c=>c.id==='PE-alcance').alcance)+' en Pago Express y '+f1(D.campanias.find(c=>c.id==='AP-alcance').impresiones/D.campanias.find(c=>c.id==='AP-alcance').alcance)+' en Aquí Pago.';
+  }else if(S.kp==='tr'){
+    rows=[{n:'Frecuencia (impresiones por persona)',pl:T.p.fr,pf:f1,ls:[{l:'Logrado',v:T.v.impresiones/T.v.alcance}]},
+     {n:'Alcance (personas)',pl:T.p.reach,pf:nn,ls:[{l:'Logrado',v:T.v.alcance}]},
+     {n:'Impresiones',pl:T.p.imp,pf:nn,ls:[{l:'Logrado',v:T.i}]},
+     {n:'CPM',pl:T.p.cpm*TC,pf:gs,low:1,ls:[{l:'Logrado',v:cp(T.g,T.i)}]}];
+    note='Logrado = septiembre y octubre. Además: '+nn(T.v.lpv)+' visitas a la página, a '+gs(T.g/T.v.lpv)+' cada una (el plan no fijó meta de visitas).';
+  }else{
+    rows=[{n:'Impresiones',pl:K.p.imp,pf:nn,ls:[{l:'Logrado',v:K.iT}]},
+     {n:'CPM',pl:K.p.cpm*TC,pf:gs,low:1,ls:[{l:'Logrado',v:cp(K.gT,K.iT)}]}];
+    note='TikTok no informa alcance ni frecuencia en esta vista. Lo logrado es el acumulado a la fecha, porque la captura no indica el período.';
+  }
+  const bar=(w,c)=>'<div class="tr"><i style="width:'+Math.min(100,Math.max(0,w))+'%;background:'+c+'"></i></div>';
+  const row=r=>{const multi=r.ls.length>1,mx=Math.max(r.pl,...r.ls.map(x=>x.v||0))||1;
+    let h='<div class="kb"><div class="kn">'+r.n+(r.low?' <span class="note">· menor es mejor</span>':'')+'</div><div class="bud'+(multi?' one':'')+'"><div class="rows"><div class="r"><span class="lb">Proyectado</span>'+bar(r.pl/mx*100,'var(--purple)')+'<span class="am">'+r.pf(r.pl)+'</span></div>';
+    r.ls.forEach(x=>{const p=r.pl&&x.v!=null?x.v/r.pl*100:0;h+='<div class="r"><span class="lb">'+x.l+'</span>'+bar(x.v!=null?x.v/mx*100:0,'var(--teal)')+'<span class="am">'+(x.v!=null?r.pf(x.v):'–')+(multi?' · '+pc(p,0):'')+'</span></div>'});
+    h+='</div>';
+    if(!multi){const x=r.ls[0];h+='<div class="pct"><b>'+(r.pl&&x.v!=null?pc(x.v/r.pl*100,0):'–')+'</b><span>del proyectado</span></div>'}
+    return h+'</div></div>'};
+  $('#chipsKpi').innerHTML=Object.keys(KSC).map(k=>'<button class="chip '+(S.kp===k?'on':'')+'" data-k="'+k+'">'+KSC[k]+'</button>').join('');
+  $('#kpiBody').innerHTML=rows.map(row).join('');
+  $('#kpiNote').textContent=note;
+}
+$('#chipsKpi').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.kp=b.dataset.k;renderKpiPlan()});
 // ---------- eventos globales
 document.querySelectorAll('#segMarca button').forEach(b=>b.addEventListener('click',()=>{S.marca=b.dataset.m;renderAll()}));
 document.querySelectorAll('#segCur button').forEach(b=>b.addEventListener('click',()=>{S.cur=b.dataset.c;document.querySelectorAll('#segCur button').forEach(x=>x.classList.toggle('on',x===b));renderAll()}));
@@ -578,7 +647,7 @@ $('#fCamp').addEventListener('change',e=>{S.camp=e.target.value;renderGal()});
 $('#fForm').addEventListener('change',e=>{S.form=e.target.value;renderGal()});
 $('#fSort').addEventListener('change',e=>{S.sort=e.target.value;renderGal()});
 $('#fQ').addEventListener('input',e=>{S.q=e.target.value;renderGal()});
-function renderAll(){renderPlan();renderGood();renderConjuntos();renderHeroSeg();renderKpis();renderTik();renderCamps();renderMeses();renderAdFilters();renderGal();renderMejores();renderDemo();renderReg();renderUbi();}
+function renderAll(){renderBudget();renderKpiPlan();renderPlan();renderGood();renderConjuntos();renderHeroSeg();renderKpis();renderTik();renderCamps();renderMeses();renderAdFilters();renderGal();renderMejores();renderDemo();renderReg();renderUbi();}
 renderAll();
 // scrollspy
 const links=[...document.querySelectorAll('#nav a')];
